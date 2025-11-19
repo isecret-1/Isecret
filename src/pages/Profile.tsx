@@ -1,94 +1,108 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
-import { Language, t } from '../lib/i18n';
-import { Settings, Grid } from 'lucide-react';
+import { Settings, Grid, Share2, Lock, LogOut } from 'lucide-react';
+import { Avatar } from '../components/Avatar';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
+import { Post } from '../types';
+import { useLanguage } from '../contexts/LanguageContext';
 
-export function Profile({ lang }: { lang: Language }) {
-  const [profile, setProfile] = useState<any>(null);
-  const [posts, setPosts] = useState<any[]>([]);
+export const Profile: React.FC = () => {
+  const { profile, user, signOut } = useAuth();
+  const { t } = useLanguage();
+  const [posts, setPosts] = useState<Post[]>([]);
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase.from('users').select('*').eq('id', user.id).single();
-        setProfile(data);
+    const fetchUserPosts = async () => {
+      if (!user) return;
+      
+      const { data } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
         
-        const { data: userPosts } = await supabase
-            .from('posts')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false });
-        setPosts(userPosts || []);
-      }
+      if (data) setPosts(data as any);
     };
-    fetchProfile();
-  }, []);
 
-  if (!profile) return <div className="p-10 text-center text-gray-500">{t('loading', lang)}</div>;
+    fetchUserPosts();
+  }, [user]);
+
+  if (!profile) return <div className="p-10 text-center text-white">Loading profile...</div>;
 
   return (
-    <div className="animate-in fade-in duration-700">
-      
-      {/* Header Card */}
-      <div className="glass-panel rounded-3xl p-6 mb-8 relative overflow-hidden text-center mt-4">
-        <div className="absolute inset-0 bg-gradient-to-b from-violet-500/10 to-transparent pointer-events-none" />
-        
-        <div className="relative z-10 flex flex-col items-center">
-          <div className="relative mb-4">
-            <div className="absolute inset-0 bg-gradient-to-r from-violet-500 to-cyan-400 rounded-full blur opacity-70" />
-            <img 
-                src={profile.avatar_url || `https://api.dicebear.com/9.x/identicon/svg?seed=${profile.handle}&backgroundColor=1b1b26`} 
-                alt="Profile" 
-                className="relative w-28 h-28 rounded-full border-2 border-white/20 bg-[#1B1B26] object-cover"
-            />
-          </div>
-          
-          <h2 className="text-2xl font-bold text-white tracking-tight">@{profile.handle}</h2>
-          <p className="text-sm text-gray-400 mt-1">Anonymous User</p>
+    <div className="pb-24 pt-4 px-4 max-w-md mx-auto min-h-screen bg-black text-white">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-8">
+        <div className="flex items-center gap-2 opacity-50">
+          <Lock size={14} className="text-white" />
+          <span className="text-sm font-mono uppercase tracking-widest">{t.anonymousId}</span>
+        </div>
+        <div className="flex gap-6">
+           <button onClick={signOut} className="text-red-500 hover:text-red-400 transition-colors">
+            <LogOut size={22} />
+          </button>
+          <button className="text-white hover:text-secondary transition-colors">
+            <Settings size={22} />
+          </button>
+        </div>
+      </div>
 
-          <div className="flex items-center gap-8 mt-6 w-full justify-center">
-             <div className="text-center">
-                <span className="block text-xl font-bold text-white">{posts.length}</span>
-                <span className="text-xs text-gray-500 uppercase tracking-wider">Secrets</span>
-             </div>
-             <div className="w-px h-8 bg-white/10" />
-             <div className="text-center opacity-50">
-                <span className="block text-xl font-bold text-white">0</span>
-                <span className="text-xs text-gray-500 uppercase tracking-wider">Followers</span>
-             </div>
-          </div>
+      {/* Profile Info */}
+      <div className="flex flex-col items-center mb-8">
+        <div className="mb-6 relative">
+           <div className="p-1 rounded-full border-2 border-dashed border-secondary">
+             <Avatar color={profile.avatar_color} size="xl" />
+           </div>
+        </div>
+
+        <h1 className="text-xl font-bold text-white mb-2">{profile.handle}</h1>
+        
+        {/* Stats */}
+        <div className="flex justify-center w-full gap-10 mb-6 border-y border-zinc-900 py-4">
+            <div className="text-center">
+                <div className="text-lg font-black text-white">{posts.length}</div>
+                <div className="text-xs text-zinc-500 uppercase tracking-wide">{t.posts}</div>
+            </div>
+            <div className="text-center">
+                <div className="text-lg font-black text-white">0</div>
+                <div className="text-xs text-zinc-500 uppercase tracking-wide">{t.followers}</div>
+            </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 w-full px-4">
+          <button className="flex-1 bg-zinc-900 border border-zinc-800 text-white py-2.5 rounded-sm text-sm font-bold hover:bg-zinc-800 transition-colors">
+            Share Profile
+          </button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center justify-center gap-2 mb-4 text-gray-400">
-        <Grid size={20} className="text-white" />
-        <span className="text-xs font-bold uppercase tracking-widest text-white">Your Secrets</span>
+      <div className="flex border-b border-zinc-800 mb-1">
+        <button 
+            className="flex-1 pb-3 text-sm font-medium relative transition-colors text-white"
+        >
+            <div className="flex justify-center items-center gap-2">
+                <Grid size={20} />
+            </div>
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white mx-12" />
+        </button>
       </div>
 
-      {/* Grid */}
-      <div className="grid grid-cols-2 gap-3 pb-4">
-        {posts.map(post => (
-            <div key={post.id} className="glass-panel aspect-square rounded-2xl overflow-hidden relative group cursor-pointer hover:bg-white/10 transition-colors">
-                {post.image_url ? (
-                    <img src={post.image_url} className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                ) : (
-                    <div className="absolute inset-0 flex items-center justify-center p-4">
-                        <span className="text-[10px] leading-tight text-gray-300 line-clamp-6 text-center opacity-80 group-hover:opacity-100">
-                           {post.content}
-                        </span>
-                    </div>
-                )}
-            </div>
+      {/* Content Grid */}
+      <div className="grid grid-cols-3 gap-0.5">
+        {posts.map((post) => (
+          <div key={post.id} className="aspect-[3/4] bg-zinc-900 relative overflow-hidden group cursor-pointer border border-black">
+            {post.image_url ? (
+              <img src={post.image_url} alt="Post" className="w-full h-full object-cover opacity-90 hover:opacity-100 transition-opacity" />
+            ) : (
+              <div className="w-full h-full p-2 flex items-center justify-center bg-zinc-900 text-[10px] text-center text-zinc-500">
+                {post.content.slice(0, 30)}...
+              </div>
+            )}
+          </div>
         ))}
       </div>
-      
-      {posts.length === 0 && (
-          <div className="text-center py-10 text-gray-600 text-sm">
-              No secrets shared yet.
-          </div>
-      )}
     </div>
   );
-}
+};
